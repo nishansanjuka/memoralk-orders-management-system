@@ -1,0 +1,6 @@
+{
+  "name": "Vanguard Orders - Order Management & Growth Analytics",
+  "description": "Executive order management platform with cost vs selling price tracking, automated client invoice PDF generation, status workflow audits, and interactive monthly growth analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

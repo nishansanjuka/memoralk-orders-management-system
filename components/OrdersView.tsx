@@ -13,7 +13,6 @@ import {
   Download,
   CheckCircle2,
   Filter,
-  DollarSign,
   TrendingUp,
 } from 'lucide-react';
 

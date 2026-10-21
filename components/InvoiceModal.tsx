@@ -38,7 +38,7 @@ export function InvoiceModal({ order, isOpen, onClose }: InvoiceModalProps) {
 
   const handleCopyLink = () => {
     navigator.clipboard?.writeText(
-      `https://vanguardorders.io/invoices/${order.invoiceNumber}?ref=${order.id}`
+      `https://memoralk.com/invoices/${order.invoiceNumber}?ref=${order.id}`
     );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -103,14 +103,25 @@ export function InvoiceModal({ order, isOpen, onClose }: InvoiceModalProps) {
           {/* Header Banner */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-8 border-b border-slate-200">
             <div>
-              <div className="text-2xl font-black tracking-tight text-slate-900">
-                VANGUARD TECH
+              <div className="flex items-center gap-3 mb-2">
+                <img
+                  src="/logo.jpg"
+                  alt="Memoralk Logo"
+                  className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs"
+                />
+                <div>
+                  <span className="text-2xl font-black tracking-tight text-slate-900 block leading-tight">
+                    MEMORALK
+                  </span>
+                  <span className="text-xs text-slate-500 font-medium">
+                    Framing memories, not just photos
+                  </span>
+                </div>
               </div>
-              <div className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Enterprise Hardware & Display Systems Inc.<br />
-                100 Montgomery St, Suite 1900<br />
-                San Francisco, CA 94104 · United States<br />
-                support@vanguardorders.io · US-EIN: 84-2910394
+              <div className="text-xs text-slate-500 leading-relaxed mt-2">
+                Enterprise Orders & Custom Framing Systems<br />
+                Colombo, Sri Lanka<br />
+                support@memoralk.com · +94 11 234 5678
               </div>
             </div>
 
@@ -242,9 +253,9 @@ export function InvoiceModal({ order, isOpen, onClose }: InvoiceModalProps) {
                   Wire Remittance & Notes
                 </div>
                 <div className="text-slate-500 leading-relaxed font-mono text-[11px]">
-                  Bank: Silicon Valley Commercial Bank<br />
-                  Routing: 121000358 · SWIFT: SVBKKUS33<br />
-                  Account #: 90812-4820-91<br />
+                  Bank: Commercial Bank of Ceylon<br />
+                  Branch: Colombo · SWIFT: CCEYLKLX<br />
+                  Account #: 1000849201<br />
                   Reference: {order.invoiceNumber}
                 </div>
                 {order.notes && (
@@ -283,7 +294,7 @@ export function InvoiceModal({ order, isOpen, onClose }: InvoiceModalProps) {
 
           {/* Footer Terms */}
           <div className="pt-8 mt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
-            <span>Thank you for your business. For billing queries: billing@vanguardorders.io</span>
+            <span>Thank you for choosing Memoralk. For billing queries: billing@memoralk.com</span>
             <span className="font-mono text-[11px]">System Timestamp: {new Date().toISOString()}</span>
           </div>
         </div>

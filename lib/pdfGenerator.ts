@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { Order } from '@/types/order';
 import { formatCurrency } from './analytics';
+import { MEMORALK_LOGO_BASE64 } from './logoBase64';
 
 export function generateInvoicePDF(order: Order, shouldDownload: boolean = true): jsPDF {
   const doc = new jsPDF({
@@ -20,18 +21,24 @@ export function generateInvoicePDF(order: Order, shouldDownload: boolean = true)
   const lightBg = [248, 250, 252]; // Slate 50
   const borderLight = [226, 232, 240]; // Slate 200
 
-  // 1. Header & Brand
+  // 1. Header & Brand (with Company Logo)
+  const logoSize = 22;
+  const logoX = margin;
+  const logoY = 16;
+  doc.addImage(MEMORALK_LOGO_BASE64, 'JPEG', logoX, logoY, logoSize, logoSize);
+
+  const textX = logoX + logoSize + 4;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(22);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('VANGUARD TECH', margin, 24);
+  doc.text('MEMORALK', textX, 23);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-  doc.text('Hardware Solutions & Enterprise Systems', margin, 29);
-  doc.text('100 Montgomery St, Suite 1900 · San Francisco, CA 94104', margin, 33);
-  doc.text('support@vanguardorders.io · +1 (800) 555-0199 · US-EIN: 84-2910394', margin, 37);
+  doc.text('Framing memories, not just photos', textX, 28);
+  doc.text('Enterprise Orders & Custom Framing Systems', textX, 33);
+  doc.text('Colombo, Sri Lanka · support@memoralk.com', textX, 37);
 
   // Invoice Big Label right-aligned
   doc.setFont('helvetica', 'bold');
@@ -222,9 +229,9 @@ export function generateInvoicePDF(order: Order, shouldDownload: boolean = true)
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('Bank: Silicon Valley Commercial Bank', margin, notesY + 5);
-  doc.text('Routing / ABA: 121000358 · SWIFT: SVBKKUS33', margin, notesY + 9);
-  doc.text(`Account #: 90812-4820-91 · Reference: ${order.invoiceNumber}`, margin, notesY + 13);
+  doc.text('Bank: Commercial Bank of Ceylon', margin, notesY + 5);
+  doc.text('Branch: Colombo · SWIFT: CCEYLKLX', margin, notesY + 9);
+  doc.text(`Account #: 1000849201 · Reference: ${order.invoiceNumber}`, margin, notesY + 13);
 
   if (order.notes) {
     doc.setFont('helvetica', 'italic');
@@ -241,7 +248,7 @@ export function generateInvoicePDF(order: Order, shouldDownload: boolean = true)
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-  doc.text('Thank you for partnering with Vanguard Tech. Questions? Contact billing@vanguardorders.io', margin, footerY);
+  doc.text('Thank you for partnering with Memoralk. Questions? Contact billing@memoralk.com', margin, footerY);
   doc.text(`Generated: ${new Date().toISOString().replace('T', ' ').slice(0, 19)} UTC`, pageWidth - margin, footerY, {
     align: 'right',
   });

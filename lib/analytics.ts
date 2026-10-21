@@ -146,10 +146,12 @@ export function calculateProductPerformance(orders: Order[]): ProductPerformance
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  const isNegative = amount < 0;
+  const absAmount = Math.abs(amount);
+  const formatted = new Intl.NumberFormat('en-LK', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(absAmount);
+
+  return isNegative ? `-Rs. ${formatted}` : `Rs. ${formatted}`;
 }

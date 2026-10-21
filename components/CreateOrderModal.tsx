@@ -4,7 +4,9 @@ import React, { useState } from 'react';
 import { Order, OrderItem, OrderStatus, PaymentMethod, PaymentStatus, ProductPreset } from '@/types/order';
 import { PRODUCT_CATALOG, computeItemFinancials, computeOrderFinancials } from '@/lib/seedData';
 import { formatCurrency } from '@/lib/analytics';
-import { X, Trash2, AlertCircle } from 'lucide-react';
+import { X, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { createOrder } from '@/lib/actions/orders';
+import { handleActionResponse } from '@/lib/action-client';
 
 interface CreateOrderModalProps {
   isOpen: boolean;
@@ -91,6 +93,7 @@ export function CreateOrderModal({
   ]);
 
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -139,7 +142,7 @@ export function CreateOrderModal({
     Number(discount) || 0
   );
 
-  const handleSubmit = (targetStatus: OrderStatus) => {
+  const handleSubmit = async (targetStatus: OrderStatus) => {
     // Validation
     if (!customerName.trim()) {
       setError('Please provide the customer full name.');
@@ -154,56 +157,49 @@ export function CreateOrderModal({
       return;
     }
 
-    const { orderId, invoiceNum, nowIso, dueIso } = createNewOrderMetadata();
+    setSubmitting(true);
+    setError(null);
 
-    const createdOrder: Order = {
-      id: orderId,
-      invoiceNumber: invoiceNum,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      dueDate: dueIso,
-      customer: {
-        name: customerName.trim(),
-        email: customerEmail.trim(),
-        phone: customerPhone.trim() || '+1 (555) 000-0000',
-        company: customerCompany.trim() || undefined,
-        address: customerAddress.trim() || '100 Business Center Way',
-        city: customerCity.trim() || 'San Francisco',
-        country: customerCountry.trim() || 'United States',
-      },
-      status: targetStatus,
-      paymentStatus,
-      paymentMethod,
-      items: calculatedItems,
-      taxRate: Number(taxRate) || 0,
-      taxAmount: totals.taxAmount,
-      shippingCost: Number(shippingCost) || 0,
-      discount: Number(discount) || 0,
-      subtotalSelling: totals.subtotalSelling,
-      subtotalCost: totals.subtotalCost,
-      grandTotal: totals.grandTotal,
-      totalCost: totals.totalCost,
-      netProfit: totals.netProfit,
-      marginPercent: totals.marginPercent,
-      notes: notes.trim() || undefined,
-      history: [
-        {
-          id: `hist-${orderId}-create`,
-          orderId,
-          timestamp: nowIso,
-          action: 'Order Created',
-          newStatus: targetStatus,
-          author: 'Operations Admin',
-          note:
-            targetStatus === 'pending'
-              ? 'Draft order saved in pending queue. Awaiting customer confirmation.'
-              : 'Order created with confirmed status directly.',
+    try {
+      // Call Server Action
+      const res = await createOrder({
+        customer: {
+          name: customerName.trim(),
+          email: customerEmail.trim(),
+          phone: customerPhone.trim() || '+1 (555) 000-0000',
+          company: customerCompany.trim() || undefined,
+          address: customerAddress.trim() || '100 Business Center Way',
+          city: customerCity.trim() || 'San Francisco',
+          country: customerCountry.trim() || 'United States',
         },
-      ],
-    };
+        paymentMethod,
+        paymentStatus,
+        items: items.map((it) => ({
+          sku: it.sku,
+          name: it.name,
+          costPrice: Number(it.costPrice) || 0,
+          sellingPrice: Number(it.sellingPrice) || 0,
+          quantity: Number(it.quantity) || 1,
+        })),
+        taxRate: Number(taxRate) || 0,
+        shippingCost: Number(shippingCost) || 0,
+        discount: Number(discount) || 0,
+        notes: notes.trim() || undefined,
+      });
 
-    onCreateOrder(createdOrder);
-    onClose();
+      // Handle plain object response safely
+      const response = handleActionResponse(res);
+      if (response.success) {
+        onCreateOrder(response.data.order);
+        onClose();
+      } else {
+        setError(response.error.message || 'Failed to create order on server.');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Unexpected communication failure.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -374,8 +370,8 @@ export function CreateOrderModal({
                       <th className="py-2.5 px-3">Item Description</th>
                       <th className="py-2.5 px-2 w-28">SKU</th>
                       <th className="py-2.5 px-2 w-20 text-center">Qty</th>
-                      <th className="py-2.5 px-2 w-24 text-right">Cost Price ($)</th>
-                      <th className="py-2.5 px-2 w-24 text-right">Selling Price ($)</th>
+                      <th className="py-2.5 px-2 w-24 text-right">Cost Price (Rs)</th>
+                      <th className="py-2.5 px-2 w-24 text-right">Selling Price (Rs)</th>
                       <th className="py-2.5 px-3 w-28 text-right">Profit / Margin</th>
                       <th className="py-2.5 px-2 w-10 text-center"></th>
                     </tr>
@@ -510,7 +506,7 @@ export function CreateOrderModal({
 
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Shipping ($)
+                    Shipping (Rs)
                   </label>
                   <input
                     type="number"
@@ -524,7 +520,7 @@ export function CreateOrderModal({
 
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Discount ($)
+                    Discount (Rs)
                   </label>
                   <input
                     type="number"
@@ -643,17 +639,21 @@ export function CreateOrderModal({
           <div className="flex items-center gap-3">
             <button
               type="button"
+              disabled={submitting}
               onClick={() => handleSubmit('pending')}
-              className="px-4 py-2 text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg transition-colors shadow-xs"
+              className="px-4 py-2 text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg transition-colors shadow-xs disabled:opacity-50 flex items-center gap-1.5"
             >
-              Save as Pending Order
+              {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>Save as Pending Order</span>
             </button>
             <button
               type="button"
+              disabled={submitting}
               onClick={() => handleSubmit('confirmed')}
-              className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-indigo-600 rounded-lg transition-colors shadow-xs"
+              className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-indigo-600 rounded-lg transition-colors shadow-xs disabled:opacity-50 flex items-center gap-1.5"
             >
-              Create & Confirm Order
+              {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>Create & Confirm Order</span>
             </button>
           </div>
         </div>

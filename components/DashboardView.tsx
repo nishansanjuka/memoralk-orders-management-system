@@ -9,7 +9,7 @@ import {
 } from '@/lib/analytics';
 import {
   TrendingUp,
-  DollarSign,
+  Banknote,
   Package,
   ArrowUpRight,
   ArrowDownRight,
@@ -92,7 +92,7 @@ export function DashboardView({
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs transition-shadow hover:shadow-sm">
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
             <span>Total Gross Revenue</span>
-            <DollarSign className="w-4 h-4 text-slate-400" />
+            <Banknote className="w-4 h-4 text-slate-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold tracking-tight text-slate-900 font-mono tabular-nums">

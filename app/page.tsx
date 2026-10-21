@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useSyncExternalStore } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Order, OrderStatus } from '@/types/order';
 import { INITIAL_ORDERS } from '@/lib/seedData';
 import { generateInvoicePDF } from '@/lib/pdfGenerator';
@@ -12,17 +13,20 @@ import { CreateOrderModal } from '@/components/CreateOrderModal';
 import { OrderDetailModal } from '@/components/OrderDetailModal';
 import { InvoiceModal } from '@/components/InvoiceModal';
 import { StatusChangeModal } from '@/components/StatusChangeModal';
+import { ordersQueryOptions } from '@/lib/query-options/orders';
+import { seedDatabaseAction, updateOrderStatus } from '@/lib/actions/orders';
+import { handleActionResponse } from '@/lib/action-client';
 import { CheckCircle2 } from 'lucide-react';
 
-const STORAGE_KEY = 'vanguard_orders_storage_v1';
+const STORAGE_KEY = 'memoralk_orders_storage_v1';
 
 function subscribeToOrderStorage(callback: () => void) {
   if (typeof window === 'undefined') return () => {};
   window.addEventListener('storage', callback);
-  window.addEventListener('vanguard_orders_event', callback);
+  window.addEventListener('memoralk_orders_event', callback);
   return () => {
     window.removeEventListener('storage', callback);
-    window.removeEventListener('vanguard_orders_event', callback);
+    window.removeEventListener('memoralk_orders_event', callback);
   };
 }
 
@@ -36,6 +40,9 @@ function getServerSnapshot(): string {
 }
 
 export default function OrderManagementApp() {
+  const queryClient = useQueryClient();
+  const { data: serverOrdersData } = useQuery(ordersQueryOptions);
+
   const rawStoredOrders = useSyncExternalStore(
     subscribeToOrderStorage,
     getOrderStorageSnapshot,
@@ -43,6 +50,10 @@ export default function OrderManagementApp() {
   );
 
   const orders: Order[] = useMemo(() => {
+    // If server query returns database orders, prioritize live server data
+    if (serverOrdersData?.orders && serverOrdersData.orders.length > 0) {
+      return serverOrdersData.orders;
+    }
     if (!rawStoredOrders) return INITIAL_ORDERS;
     try {
       const parsed = JSON.parse(rawStoredOrders);
@@ -53,7 +64,7 @@ export default function OrderManagementApp() {
       // Fallback
     }
     return INITIAL_ORDERS;
-  }, [rawStoredOrders]);
+  }, [serverOrdersData, rawStoredOrders]);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'history'>('dashboard');
 
@@ -87,17 +98,18 @@ export default function OrderManagementApp() {
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        window.dispatchEvent(new Event('vanguard_orders_event'));
+        window.dispatchEvent(new Event('memoralk_orders_event'));
       } catch (err) {
         console.warn('Failed to save to local storage', err);
       }
     }
   };
 
-  // Create new order handler
+  // Create new order handler (called when modal completes server action)
   const handleCreateOrder = (newOrder: Order) => {
-    const updated = [newOrder, ...orders];
+    const updated = [newOrder, ...orders.filter((o) => o.id !== newOrder.id)];
     saveOrders(updated);
+    queryClient.invalidateQueries({ queryKey: ['orders-list'] });
     showToast(`Order ${newOrder.id} created successfully as ${newOrder.status.toUpperCase()}`);
     if (newOrder.status === 'pending') {
       setActiveTab('orders');
@@ -105,7 +117,7 @@ export default function OrderManagementApp() {
   };
 
   // Update Status handler with audit trail
-  const handleUpdateStatus = (orderId: string, newStatus: OrderStatus, note?: string) => {
+  const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus, note?: string) => {
     const now = new Date().toISOString();
     const updated = orders.map((order) => {
       if (order.id !== orderId) return order;
@@ -138,6 +150,22 @@ export default function OrderManagementApp() {
 
     saveOrders(updated);
     showToast(`Order ${orderId} marked as ${newStatus.toUpperCase()}`);
+
+    // Persist status change to database via safe server action
+    try {
+      const res = await updateOrderStatus({
+        orderId,
+        status: newStatus,
+        note: note || undefined,
+        author: 'Operations Lead',
+      });
+      const response = handleActionResponse(res);
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: ['orders-list'] });
+      }
+    } catch (err) {
+      console.error('Failed to sync order update to server database:', err);
+    }
   };
 
   // Direct prompt status change from table
@@ -155,9 +183,20 @@ export default function OrderManagementApp() {
     showToast(`Downloaded invoice PDF for ${order.invoiceNumber}`);
   };
 
-  // Reset to initial seed data
-  const handleResetData = () => {
+  // Reset to initial seed data (runs Drizzle DB seed server action and local storage reset)
+  const handleResetData = async () => {
     saveOrders(INITIAL_ORDERS);
+    try {
+      const res = await seedDatabaseAction();
+      const response = handleActionResponse(res);
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: ['orders-list'] });
+        showToast(response.data.message);
+        return;
+      }
+    } catch {
+      // Fallback
+    }
     showToast('Reset order book and monthly growth data to initial state.');
   };
 
@@ -209,7 +248,7 @@ export default function OrderManagementApp() {
       <footer className="no-print mt-auto border-t border-slate-200 bg-white py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-800">Vanguard Orders</span>
+            <span className="font-semibold text-slate-800">Memoralk</span>
             <span aria-hidden="true">·</span>
             <span>Enterprise Order Management & Margin Hub</span>
           </div>
@@ -219,12 +258,12 @@ export default function OrderManagementApp() {
             <span aria-hidden="true">·</span>
             <span>Real-time COGS & Margin Tracking</span>
             <span aria-hidden="true">·</span>
-            <span className="font-mono tabular-nums">{orders.length} Orders Active</span>
+            <span className="text-indigo-600 font-medium">Clerk Auth & Drizzle ORM Active</span>
           </div>
         </div>
       </footer>
 
-      {/* Modals */}
+      {/* Modals & Dialogs */}
       <CreateOrderModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
@@ -233,33 +272,39 @@ export default function OrderManagementApp() {
 
       <OrderDetailModal
         order={currentDetailOrder}
-        isOpen={!!currentDetailOrder}
+        isOpen={Boolean(selectedOrderDetailId)}
         onClose={() => setSelectedOrderDetailId(null)}
         onUpdateStatus={handleUpdateStatus}
-        onOpenInvoicePreview={(order) => setSelectedInvoiceOrderId(order.id)}
+        onOpenInvoicePreview={(order: Order) => {
+          setSelectedOrderDetailId(null);
+          setSelectedInvoiceOrderId(order.id);
+        }}
         onDownloadPDF={handleQuickDownloadPDF}
       />
 
       <InvoiceModal
         order={currentInvoiceOrder}
-        isOpen={!!currentInvoiceOrder}
+        isOpen={Boolean(selectedInvoiceOrderId)}
         onClose={() => setSelectedInvoiceOrderId(null)}
       />
 
       <StatusChangeModal
-        key={`${statusChangeTarget.order?.id || 'none'}-${statusChangeTarget.targetStatus || 'none'}`}
         order={statusChangeTarget.order}
         targetStatus={statusChangeTarget.targetStatus}
         isOpen={statusChangeTarget.isOpen}
         onClose={() =>
-          setStatusChangeTarget({ isOpen: false, order: null, targetStatus: null })
+          setStatusChangeTarget({
+            isOpen: false,
+            order: null,
+            targetStatus: null,
+          })
         }
         onConfirm={handleUpdateStatus}
       />
 
-      {/* Interactive Toast Notification */}
+      {/* Toast Notification Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-xs animate-in slide-in-from-bottom-2 duration-200 border border-slate-700">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-xs font-medium rounded-xl shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-200">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>

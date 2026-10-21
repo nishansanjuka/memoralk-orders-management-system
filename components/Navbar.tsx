@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, RotateCcw, Menu, X, ArrowUpRight } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { Plus, RotateCcw, Menu, X, LogIn } from 'lucide-react';
+import { UserButton, useUser } from '@clerk/nextjs';
 
 interface NavbarProps {
   activeTab: 'dashboard' | 'orders' | 'history';
@@ -19,6 +22,7 @@ export function Navbar({
   pendingCount,
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isSignedIn, isLoaded } = useUser();
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200">
@@ -30,11 +34,17 @@ export function Navbar({
               onClick={() => setActiveTab('dashboard')}
               className="text-left group flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 rounded-md"
             >
-              <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm tracking-wider shadow-sm group-hover:bg-indigo-600 transition-colors">
-                VO
+              <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200/80 shadow-xs flex items-center justify-center bg-white shrink-0">
+                <Image
+                  src="/logo.jpg"
+                  alt="Memoralk Logo"
+                  width={32}
+                  height={32}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <span className="text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap">
-                Vanguard Orders
+                Memoralk
               </span>
             </button>
           </div>
@@ -78,7 +88,7 @@ export function Navbar({
             </button>
           </nav>
 
-          {/* Zone 3: 1 Primary Action + Quick Utilities */}
+          {/* Zone 3: 1 Primary Action + Clerk Auth Controls + Quick Utilities */}
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={onResetData}
@@ -96,6 +106,29 @@ export function Navbar({
               <Plus className="w-4 h-4" />
               <span>New Order</span>
             </button>
+
+            {/* Clerk Authentication Controls */}
+            <div className="flex items-center pl-1 border-l border-slate-200">
+              {isLoaded && isSignedIn ? (
+                <div className="flex items-center gap-2">
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        userButtonAvatarBox: "w-8 h-8 rounded-full border border-slate-200",
+                      },
+                    }}
+                  />
+                </div>
+              ) : (
+                <Link
+                  href="/sign-in"
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </Link>
+              )}
+            </div>
 
             {/* Mobile menu button */}
             <button
